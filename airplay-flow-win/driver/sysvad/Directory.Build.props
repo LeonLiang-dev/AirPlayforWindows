@@ -1,0 +1,41 @@
+<Project>
+  <PropertyGroup>
+    <AirPlayFlowWdkVersion>10.0.26100.6584</AirPlayFlowWdkVersion>
+    <AirPlayFlowSdkVersion>10.0.26100.1</AirPlayFlowSdkVersion>
+    <AirPlayFlowKitVersion>10.0.26100.0</AirPlayFlowKitVersion>
+
+    <AirPlayFlowWdkPackageDir Condition="Exists('$(MSBuildThisFileDirectory)packages\Microsoft.Windows.WDK.x64.$(AirPlayFlowWdkVersion)')">$(MSBuildThisFileDirectory)packages\Microsoft.Windows.WDK.x64.$(AirPlayFlowWdkVersion)</AirPlayFlowWdkPackageDir>
+    <AirPlayFlowWdkPackageDir Condition="'$(AirPlayFlowWdkPackageDir)' == ''">$(UserProfile)\.nuget\packages\microsoft.windows.wdk.x64\$(AirPlayFlowWdkVersion)</AirPlayFlowWdkPackageDir>
+    <AirPlayFlowSdkPackageDir Condition="Exists('$(MSBuildThisFileDirectory)packages\Microsoft.Windows.SDK.CPP.$(AirPlayFlowSdkVersion)')">$(MSBuildThisFileDirectory)packages\Microsoft.Windows.SDK.CPP.$(AirPlayFlowSdkVersion)</AirPlayFlowSdkPackageDir>
+    <AirPlayFlowSdkPackageDir Condition="'$(AirPlayFlowSdkPackageDir)' == ''">$(UserProfile)\.nuget\packages\microsoft.windows.sdk.cpp\$(AirPlayFlowSdkVersion)</AirPlayFlowSdkPackageDir>
+    <AirPlayFlowSdkX64PackageDir Condition="Exists('$(MSBuildThisFileDirectory)packages\Microsoft.Windows.SDK.CPP.x64.$(AirPlayFlowSdkVersion)')">$(MSBuildThisFileDirectory)packages\Microsoft.Windows.SDK.CPP.x64.$(AirPlayFlowSdkVersion)</AirPlayFlowSdkX64PackageDir>
+    <AirPlayFlowSdkX64PackageDir Condition="'$(AirPlayFlowSdkX64PackageDir)' == ''">$(UserProfile)\.nuget\packages\microsoft.windows.sdk.cpp.x64\$(AirPlayFlowSdkVersion)</AirPlayFlowSdkX64PackageDir>
+  </PropertyGroup>
+
+  <Import Project="$(AirPlayFlowWdkPackageDir)\build\native\Microsoft.Windows.WDK.x64.props" Condition="'$(Platform)' == 'x64' and Exists('$(AirPlayFlowWdkPackageDir)\build\native\Microsoft.Windows.WDK.x64.props')" />
+  <Import Project="$(AirPlayFlowSdkX64PackageDir)\build\native\Microsoft.Windows.SDK.cpp.x64.props" Condition="'$(Platform)' == 'x64' and Exists('$(AirPlayFlowSdkX64PackageDir)\build\native\Microsoft.Windows.SDK.cpp.x64.props')" />
+  <Import Project="$(AirPlayFlowSdkPackageDir)\build\native\Microsoft.Windows.SDK.cpp.props" Condition="Exists('$(AirPlayFlowSdkPackageDir)\build\native\Microsoft.Windows.SDK.cpp.props')" />
+
+  <PropertyGroup>
+    <WindowsSdkDir>$(AirPlayFlowSdkPackageDir)\c\</WindowsSdkDir>
+    <WindowsSdkDir_10>$(WindowsSdkDir)</WindowsSdkDir_10>
+    <WDKContentRoot>$(AirPlayFlowWdkPackageDir)\c\</WDKContentRoot>
+    <UCRTContentRoot>$(WindowsSdkDir)</UCRTContentRoot>
+    <WDKBuildFolder>$(AirPlayFlowKitVersion)</WDKBuildFolder>
+    <WDK_NuGet>true</WDK_NuGet>
+    <IsKernelModeToolset>true</IsKernelModeToolset>
+    <WindowsTargetPlatformVersion>$(AirPlayFlowKitVersion)</WindowsTargetPlatformVersion>
+    <TargetPlatformVersion>$(AirPlayFlowKitVersion)</TargetPlatformVersion>
+    <InfToolPath>$(WDKContentRoot)bin\$(WDKBuildFolder)\x64\</InfToolPath>
+    <SkipPackageVerification>false</SkipPackageVerification>
+    <ApiValidator_Enable>true</ApiValidator_Enable>
+    <EnableTestSign>false</EnableTestSign>
+    <SignOutput>false</SignOutput>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PreprocessorDefinitions>SYSVAD_BTH_BYPASS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+</Project>

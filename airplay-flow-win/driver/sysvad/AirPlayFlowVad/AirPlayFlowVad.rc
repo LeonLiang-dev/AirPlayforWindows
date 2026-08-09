@@ -1,0 +1,30 @@
+/*++
+
+Copyright (c) Microsoft Corporation All Rights Reserved
+
+Module Name:
+
+    AirPlayFlowVad.rc
+
+Abstract:
+
+
+--*/
+
+#include <windows.h>
+
+#include <ntverp.h>
+
+#define VER_FILETYPE                VFT_DRV
+#define VER_FILESUBTYPE             VFT2_DRV_SOUND
+#define VER_FILEDESCRIPTION_STR     "AirPlay Flow Win Virtual Audio Driver"
+#define VER_INTERNALNAME_STR        "AirPlayFlowVad.sys"
+#define VER_ORIGINALFILENAME_STR    "AirPlayFlowVad.sys"
+
+#define VER_LEGALCOPYRIGHT_YEARS    "2026"
+#define VER_LEGALCOPYRIGHT_STR      "Copyright (C) AirPlay Flow Win contributors " VER_LEGALCOPYRIGHT_YEARS
+
+#include "common.ver"
+
+
+
