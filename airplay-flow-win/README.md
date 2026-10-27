@@ -5,7 +5,7 @@ AirPlay Flow Win 是一款面向 Windows 11 的开源桌面音频发送器。它
 项目使用 **Tauri 2 + Rust + React + TypeScript** 构建，并提供一个基于 Microsoft SysVAD 的虚拟播放设备。安装完成后，用户只需在 Windows 声音面板中选择“扬声器 (AirPlay Flow Win Virtual Audio)”，即可像切换普通声卡一样决定是否把系统声音发送到 AirPlay 音箱。
 
 > [!WARNING]
-> 项目仍处于开发阶段，当前版本为 `v0.1.4`，实现的是以未加密 RAOP 为主的音频发送链路，并非完整的 AirPlay 2 协议栈。**默认安装包不包含内核驱动**，而是复用系统里已经签名的虚拟声卡（如 Steam Streaming Speakers、VB-CABLE），因此不会启用测试签名模式，也不会影响 Secure Boot 和反作弊游戏。只有 `-IncludeDriver` 构建才会携带测试签名驱动，仅适合开发调试。
+> 项目仍处于开发阶段，当前版本为 `v0.1.5`，实现的是以未加密 RAOP 为主的音频发送链路，并非完整的 AirPlay 2 协议栈。**默认安装包不包含内核驱动**，而是复用系统里已经签名的虚拟声卡（如 Steam Streaming Speakers、VB-CABLE），因此不会启用测试签名模式，也不会影响 Secure Boot 和反作弊游戏。只有 `-IncludeDriver` 构建才会携带测试签名驱动，仅适合开发调试。
 
 ## 功能特性
 
@@ -51,7 +51,7 @@ flowchart LR
 当前安装包位于：
 
 ```text
-release/AirPlay Flow Win_0.1.4_x64-setup.exe
+release/AirPlay Flow Win_0.1.5_x64-setup.exe
 ```
 
 ### 安装

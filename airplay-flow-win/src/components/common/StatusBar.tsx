@@ -38,7 +38,7 @@ export function StatusBar() {
           </>
         )}
       </div>
-      <span>AirPlay Flow Win v0.1.4</span>
+      <span>AirPlay Flow Win v0.1.5</span>
     </footer>
   );
 }
