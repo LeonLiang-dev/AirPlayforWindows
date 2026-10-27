@@ -100,7 +100,7 @@ impl AudioPipeline {
                                 }
                             }
                             Some(CaptureMessage::DeviceChanged(device)) => {
-                                if !device.is_airplay_flow_virtual {
+                                if !device.is_virtual_output {
                                     pending.clear();
                                     info!(
                                         "AirPlay output paused because Windows selected '{}'",

@@ -5,7 +5,7 @@ AirPlay Flow Win 是一款面向 Windows 11 的开源桌面音频发送器。它
 项目使用 **Tauri 2 + Rust + React + TypeScript** 构建，并提供一个基于 Microsoft SysVAD 的虚拟播放设备。安装完成后，用户只需在 Windows 声音面板中选择“扬声器 (AirPlay Flow Win Virtual Audio)”，即可像切换普通声卡一样决定是否把系统声音发送到 AirPlay 音箱。
 
 > [!WARNING]
-> 项目仍处于开发阶段，当前版本为 `v0.1.4`，实现的是以未加密 RAOP 为主的音频发送链路，并非完整的 AirPlay 2 协议栈。仓库内安装包附带的是**测试签名驱动**，仅适合开发与兼容性测试，不建议直接安装到日常使用或运行内核反作弊游戏的电脑。
+> 项目仍处于开发阶段，当前版本为 `v0.1.4`，实现的是以未加密 RAOP 为主的音频发送链路，并非完整的 AirPlay 2 协议栈。**默认安装包不包含内核驱动**，而是复用系统里已经签名的虚拟声卡（如 Steam Streaming Speakers、VB-CABLE），因此不会启用测试签名模式，也不会影响 Secure Boot 和反作弊游戏。只有 `-IncludeDriver` 构建才会携带测试签名驱动，仅适合开发调试。
 
 ## 功能特性
 
@@ -21,7 +21,8 @@ AirPlay Flow Win 是一款面向 Windows 11 的开源桌面音频发送器。它
 - 跟随 Windows 默认输出设备切换
 - Windows 选择虚拟声卡时发送 AirPlay；切回耳机或实体音箱时自动暂停发送
 - 将虚拟端点的 Windows 主音量和静音状态应用到发送的 PCM 音频
-- 提供应用、虚拟声卡和驱动卸载逻辑一体化的 NSIS 安装包
+- 兼容任意已签名虚拟输出：Steam Streaming Speakers、VB-CABLE、VoiceMeeter、Virtual Audio Cable 等
+- 提供应用与可选驱动一体化部署的 NSIS 安装包
 
 ## 工作原理
 
@@ -35,7 +36,7 @@ flowchart LR
     RTP --> Speaker[AirPlay / RAOP 音箱]
 ```
 
-虚拟声卡只负责向 Windows 注册一个 WaveRT 播放端点，网络、协议和编码工作全部位于 Rust 用户态进程中。这样既避免了自定义内核通信协议，也能防止实体耳机与 AirPlay 音箱同时播放同一份声音。
+虚拟声卡只负责向 Windows 注册一个 WaveRT 播放端点，网络、协议和编码工作全部位于 Rust 用户态进程中。这样既避免了自定义内核通信协议，也能防止实体耳机与 AirPlay 音箱同时播放同一份声音。应用不要求这个端点由本项目提供：任何已签名的虚拟输出（Steam Streaming Speakers、VB-CABLE 等）都可以作为 Windows 默认输出被采集。
 
 ## 快速开始
 
@@ -44,7 +45,7 @@ flowchart LR
 - Windows 11 x64
 - 电脑和接收器位于同一局域网
 - 网络允许 mDNS 和应用的局域网通信
-- 当前测试版驱动需要管理员权限、关闭 Secure Boot，并启用 Windows 测试签名模式
+- 一个可选的虚拟输出设备：Steam Streaming Speakers（随 Steam 安装）、VB-CABLE，或本项目 `-IncludeDriver` 构建自带的虚拟声卡
 - 接收器需要兼容当前实现的未加密 RAOP/ALAC 音频链路
 
 当前安装包位于：
@@ -56,9 +57,8 @@ release/AirPlay Flow Win_0.1.4_x64-setup.exe
 ### 安装
 
 1. 运行安装包并同意管理员权限请求。
-2. 安装器会同时安装桌面应用和 `AirPlay Flow Win Virtual Audio` 虚拟声卡。
-3. 如果安装器首次启用了 Windows 测试签名模式，请在安装完成后重启电脑。
-4. 打开 Windows 声音设置，确认输出设备列表中出现“扬声器 (AirPlay Flow Win Virtual Audio)”。
+2. 安装器只安装桌面应用，不安装内核驱动，也不会修改测试签名或 Secure Boot。
+3. 打开 Windows 声音设置，确认输出设备列表里已经有一个虚拟声卡（例如 Steam Streaming Speakers）。应用内“设置 → Windows audio capture”会列出检测到的虚拟输出。
 
 安装器会自动迁移早期 `v0.1.0` 的按用户安装版本，不需要手工运行 DevCon、PnPUtil 或驱动 PowerShell 脚本。
 
@@ -66,7 +66,7 @@ release/AirPlay Flow Win_0.1.4_x64-setup.exe
 
 1. 启动 AirPlay Flow Win，等待设备扫描完成。
 2. 在设备列表中连接目标音箱。
-3. 在 Windows 快速设置或“设置 → 系统 → 声音”中，将输出设备切换为“扬声器 (AirPlay Flow Win Virtual Audio)”。
+3. 在 Windows 快速设置或“设置 → 系统 → 声音”中，将输出设备切换为虚拟声卡（例如“Steam Streaming Speakers”、“CABLE Input”，或本项目驱动构建的“扬声器 (AirPlay Flow Win Virtual Audio)”）。
 4. 正常播放音乐、视频或其他系统声音。
 5. 如需恢复本机播放，在 Windows 中改选耳机、显示器或其他实体输出设备；应用会检测切换并暂停 AirPlay 音频采集。
 
@@ -76,16 +76,19 @@ release/AirPlay Flow Win_0.1.4_x64-setup.exe
 C:\ProgramData\AirPlay Flow Win\Installer
 ```
 
-## 测试签名与 Secure Boot
+## 虚拟声卡与驱动签名
 
-当前仓库内的 `release/driver` 是开发测试签名包，因此存在以下限制：
+默认安装包不安装内核驱动。应用采集的是 Windows 默认输出端点，因此只要把默认输出设成一个**已签名的虚拟声卡**，就能实现“只在音箱播放、本机不出声”：
 
-- 启用 Windows 测试签名模式后，Secure Boot 必须保持关闭。
-- BattlEye 等内核级反作弊通常拒绝在测试签名模式下运行。
-- 仅关闭 `TESTSIGNING` 或 `FLIGHTSIGNING` 并不能把测试驱动变为正式驱动；关闭后，Windows 也可能拒绝加载该虚拟声卡。
-- 若要在 Secure Boot 开启的普通用户电脑上实现“一次安装即可使用”，必须将驱动提交微软完成 Attestation 或 WHQL 签名，并用正式签名包重新构建安装器。
+| 方式 | 成本 | 限制 |
+| --- | --- | --- |
+| Steam Streaming Speakers | 免费，随 Steam 安装 | 用户需要安装 Steam |
+| VB-CABLE | 免费（个人使用） | 不能随本项目安装包分发 |
+| 本项目自带驱动（`-IncludeDriver`） | 需要微软签名 | 见下 |
 
-因此，不要把当前测试安装包当作正式发行版。正式签名是发布前的必要步骤，而不是可以通过安装脚本绕过的限制。
+仓库内的 `release/driver` 是自签名测试包，仅用于开发：只有在开启 Windows 测试签名模式后才会加载，而测试签名模式要求关闭 Secure Boot，并且会被 BattlEye 等内核级反作弊拒绝。仅关闭 `TESTSIGNING` 或 `FLIGHTSIGNING` 并不能把测试驱动变成正式驱动，关闭后 Windows 也不会加载它。
+
+若希望本项目自带、可品牌化的虚拟声卡用于正式发行，必须把驱动提交微软完成 Attestation 或 WHQL 签名（微软要求硬件开发者账号关联一张在有效期内的 EV 代码签名证书），然后用正式签名包执行 `Build-Installer.ps1 -IncludeDriver`。
 
 ## 协议实现状态
 
@@ -131,8 +134,8 @@ C:\ProgramData\AirPlay Flow Win\Installer
 ### 安装器
 
 - Tauri NSIS，按计算机安装
-- 通过 Windows 自带 PnPUtil 与 SetupAPI 创建或更新根枚举设备
-- 安装应用时部署驱动，卸载应用时清理设备节点和驱动包
+- 默认构建只安装应用，不安装驱动，也不修改测试签名或 Secure Boot
+- `-IncludeDriver` 构建通过 Windows 自带 PnPUtil 与 SetupAPI 创建或更新根枚举设备，卸载时清理设备节点和驱动包
 
 ## 本地开发
 
@@ -197,19 +200,25 @@ driver/build/x64/Release
 
 ## 构建安装包
 
-使用仓库内已经暂存的驱动包：
+默认构建（不含驱动，安装器不碰测试签名和 Secure Boot）：
 
 ```powershell
 .\Build-Installer.ps1
 ```
 
+把仓库内暂存的测试签名驱动打进安装包（仅限开发调试）：
+
+```powershell
+.\Build-Installer.ps1 -IncludeDriver
+```
+
 使用外部的微软正式签名驱动包：
 
 ```powershell
-.\Build-Installer.ps1 -DriverPackagePath "C:\path\to\signed-driver"
+.\Build-Installer.ps1 -IncludeDriver -DriverPackagePath "C:\path\to\signed-driver"
 ```
 
-外部目录至少需要包含匹配的 `.inf`、`.sys` 和 `.cat` 文件。脚本会先验证驱动包，再构建 Tauri/NSIS 安装器，并将最终产物复制到 `release/`。
+外部目录至少需要包含匹配的 `.inf`、`.sys` 和 `.cat` 文件。脚本会先验证驱动包，再构建 Tauri/NSIS 安装器，并将最终产物复制到 `release/`。只有带 `-IncludeDriver` 的构建才会把驱动文件加进 `bundle.resources`；NSIS 钩子按 `$INSTDIR\driver\Install-Driver.ps1` 是否存在决定安装与卸载驱动。
 
 ## 项目结构
 
@@ -233,11 +242,11 @@ airplay-flow-win/
 
 ### 能否直接从 Windows 声音菜单切换到 AirPlay？
 
-可以。安装虚拟声卡后，在 Windows 输出设备中选择 AirPlay Flow Win 即可开始向已连接音箱发送声音；切到其他输出设备会暂停发送。AirPlay 音箱本身不会作为原生硬件端点出现，Windows 中显示的是本项目提供的虚拟端点。
+可以。把 Windows 默认输出切到任意已签名的虚拟声卡（Steam Streaming Speakers、VB-CABLE 或本项目驱动构建的 AirPlay Flow Win）即可开始向已连接音箱发送声音；切回其他输出设备会暂停发送。AirPlay 音箱本身不会作为原生硬件端点出现，Windows 中显示的是那个虚拟端点。
 
 ### 为什么连接成功却没有声音？
 
-先确认 Windows 默认输出是 AirPlay Flow Win 虚拟设备，而不是耳机或显示器；然后确认应用中的接收器状态为 Streaming。若仍无声音，检查防火墙、局域网隔离、接收器是否要求加密或 PIN 配对，以及接收器是否支持当前 RAOP/ALAC 实现。
+先确认 Windows 默认输出是虚拟声卡，而不是耳机或显示器；然后确认应用中的接收器状态为 Streaming。若仍无声音，检查防火墙、局域网隔离、接收器是否要求加密或 PIN 配对，以及接收器是否支持当前 RAOP/ALAC 实现。
 
 ### 为什么会有明显延迟？
 
@@ -245,11 +254,11 @@ AirPlay/RAOP 接收器会主动缓存音频，项目也需要进行编码和网�
 
 ### 为什么测试签名模式下游戏无法启动？
 
-这是部分内核反作弊的安全策略，不是应用界面故障。需要关闭测试签名并重启后再运行游戏；但此时测试签名虚拟声卡可能无法加载。长期解决方案是使用微软正式签名驱动。
+这是部分内核反作弊的安全策略，不是应用界面故障。默认安装包不会启用测试签名模式，所以用默认构建不会出现这个问题；只有 `-IncludeDriver` 构建（测试签名驱动）才需要关闭测试签名并重启后再运行游戏，而此时测试签名虚拟声卡将无法加载。长期方案是使用微软正式签名驱动。
 
 ## 路线图
 
-- 获取微软 Attestation/WHQL 驱动签名并支持 Secure Boot
+- （可选）获取微软 Attestation/WHQL 驱动签名，让自带虚拟声卡可在开启 Secure Boot 的电脑上使用
 - 完成 RSA/AES、FairPlay 与 PIN 配对
 - 实现 RTP 重传、延迟测量和更完整的时钟同步
 - 改善多设备同步、断线重连和弱网稳定性

@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .ok_or("Windows has no default output device")?;
     println!(
         "default={} virtual={} format={}Hz/{}ch",
-        default.name, default.is_airplay_flow_virtual, default.sample_rate, default.channels
+        default.name, default.is_virtual_output, default.sample_rate, default.channels
     );
     let mut capture = AudioCapture::new();
     let mut receiver = capture.start()?;

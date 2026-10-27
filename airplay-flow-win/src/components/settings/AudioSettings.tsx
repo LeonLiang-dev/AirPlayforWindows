@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-shell';
 import type { AudioDeviceInfo } from '../../types/device';
 
 export function AudioSettings() {
@@ -24,7 +25,16 @@ export function AudioSettings() {
   }, []);
 
   const defaultDevice = devices.find((device) => device.is_default);
-  const virtualDevice = devices.find((device) => device.is_airplay_flow_virtual);
+  const virtualDevices = devices.filter((device) => device.is_virtual_output);
+  const usingVirtualOutput = defaultDevice?.is_virtual_output ?? false;
+
+  const openSoundSettings = async () => {
+    try {
+      await open('ms-settings:sound');
+    } catch (reason) {
+      setError(String(reason));
+    }
+  };
 
   return (
     <div className="p-5 max-w-2xl">
@@ -32,7 +42,9 @@ export function AudioSettings() {
         <div>
           <h2 className="text-sm font-medium text-zinc-300">Windows audio capture</h2>
           <p className="text-sm text-zinc-500 mt-1">
-            AirPlay Flow Win follows the default output selected in Windows automatically.
+            AirPlay Flow Win streams whatever Windows plays on its default output. Select a
+            virtual output as the Windows default so the same audio is not also played on your
+            speakers.
           </p>
         </div>
         <button
@@ -59,12 +71,10 @@ export function AudioSettings() {
               <p className="text-xs text-zinc-500 mt-0.5">
                 Current Windows default · {defaultDevice.sample_rate || '—'} Hz · {defaultDevice.channels || '—'} channels
               </p>
-              <p className={`text-xs mt-1 ${defaultDevice.is_airplay_flow_virtual ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {defaultDevice.is_airplay_flow_virtual
+              <p className={`text-xs mt-1 ${usingVirtualOutput ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {usingVirtualOutput
                   ? 'Virtual output active · audio is sent to AirPlay without local playback'
-                  : virtualDevice
-                    ? 'Physical output active · select AirPlay Flow Win in Windows to stop double playback'
-                    : 'Physical output active · Windows and AirPlay will both play'}
+                  : 'Physical output active · Windows and AirPlay will both play'}
               </p>
             </div>
           </div>
@@ -74,6 +84,38 @@ export function AudioSettings() {
           </p>
         )}
       </div>
+
+      {!error && !loading && !usingVirtualOutput && (
+        <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
+          <h3 className="text-sm font-medium text-zinc-300">Virtual outputs detected</h3>
+          {virtualDevices.length > 0 ? (
+            <>
+              <p className="text-xs text-zinc-500 mt-1">
+                Select one of these in Windows to send audio to AirPlay without hearing it locally.
+              </p>
+              <ul className="mt-3 space-y-1.5">
+                {virtualDevices.map((device) => (
+                  <li key={device.id} className="flex items-center gap-2 text-sm text-zinc-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                    <span className="truncate">{device.name}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="text-xs text-zinc-500 mt-1">
+              No virtual output found. Install Steam (Steam Streaming Speakers) or VB-CABLE,
+              then refresh this page.
+            </p>
+          )}
+          <button
+            onClick={() => void openSoundSettings()}
+            className="mt-4 px-3 py-1.5 text-xs rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+          >
+            Open Windows sound settings
+          </button>
+        </div>
+      )}
 
       <p className="text-xs text-zinc-600 mt-3">
         During streaming, switching the Windows default output restarts capture automatically.

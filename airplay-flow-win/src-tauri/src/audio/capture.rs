@@ -14,7 +14,23 @@ use crate::error::{AppError, AppResult};
 
 pub const CAPTURE_SAMPLE_RATE: u32 = 44_100;
 pub const CAPTURE_CHANNELS: u16 = 2;
-pub const VIRTUAL_ENDPOINT_NAME: &str = "AirPlay Flow Win";
+/// Render endpoints that terminate in software. When Windows routes playback to
+/// one of these, nothing is heard locally, so loopback capture can stream to
+/// AirPlay without a custom kernel driver or test-signing mode.
+///
+/// Matching is case-insensitive and substring-based because endpoint names are
+/// localized and wrapped by the audio driver (for example
+/// `CABLE Input (VB-Audio Virtual Cable)`).
+pub const VIRTUAL_OUTPUT_KEYWORDS: &[&str] = &[
+    "airplay flow win",
+    "steam streaming speakers",
+    "vb-audio",
+    "cable input",
+    "voicemeeter",
+    "virtual audio cable",
+    "虚拟音频设备",
+    "虚拟声卡",
+];
 const CAPTURE_CHANNEL_CAPACITY: usize = 64;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -24,7 +40,7 @@ pub struct AudioDeviceInfo {
     pub id: String,
     pub name: String,
     pub is_default: bool,
-    pub is_airplay_flow_virtual: bool,
+    pub is_virtual_output: bool,
     pub sample_rate: u32,
     pub channels: u16,
 }
@@ -176,7 +192,7 @@ mod platform {
             let (sample_rate, channels) = mix_format(&device).unwrap_or((0, 0));
             devices.push(AudioDeviceInfo {
                 is_default: id == default_id,
-                is_airplay_flow_virtual: is_airplay_flow_virtual_endpoint(&name),
+                is_virtual_output: is_virtual_output_name(&name),
                 id,
                 name,
                 sample_rate,
@@ -226,17 +242,17 @@ mod platform {
             let active_id = device_id(&active_endpoint)?;
             let active_name = friendly_name(&active_endpoint).unwrap_or_else(|_| active_id.clone());
             let (sample_rate, channels) = mix_format(&active_endpoint).unwrap_or((0, 0));
-            let is_airplay_flow_virtual = is_airplay_flow_virtual_endpoint(&active_name);
+            let is_virtual_output = is_virtual_output_name(&active_name);
             let active_device = AudioDeviceInfo {
                 id: active_id,
                 name: active_name,
                 is_default: true,
-                is_airplay_flow_virtual,
+                is_virtual_output,
                 sample_rate,
                 channels,
             };
 
-            if !active_device.is_airplay_flow_virtual {
+            if !active_device.is_virtual_output {
                 info!(
                     "Windows default output is '{}'; AirPlay capture is paused",
                     active_device.name
@@ -328,7 +344,7 @@ mod platform {
             let endpoint = default_device(enumerator)?;
             let id = device_id(&endpoint)?;
             let name = friendly_name(&endpoint).unwrap_or_else(|_| id.clone());
-            let is_airplay_flow_virtual = is_airplay_flow_virtual_endpoint(&name);
+            let is_virtual_output = is_virtual_output_name(&name);
             let endpoint_volume: IAudioEndpointVolume =
                 unsafe { endpoint.Activate(CLSCTX_ALL, None) }
                     .map_err(capture_error("Unable to access Windows endpoint volume"))?;
@@ -378,7 +394,7 @@ mod platform {
                     id,
                     name,
                     is_default: true,
-                    is_airplay_flow_virtual,
+                    is_virtual_output,
                     sample_rate: native_format.sample_rate,
                     channels: native_format.channels,
                 },
@@ -790,9 +806,11 @@ mod platform {
         move |error| AppError::CaptureError(format!("{context}: {error}"))
     }
 
-    fn is_airplay_flow_virtual_endpoint(name: &str) -> bool {
-        name.to_ascii_lowercase()
-            .contains(&VIRTUAL_ENDPOINT_NAME.to_ascii_lowercase())
+    fn is_virtual_output_name(name: &str) -> bool {
+        let lower = name.to_lowercase();
+        VIRTUAL_OUTPUT_KEYWORDS
+            .iter()
+            .any(|keyword| lower.contains(keyword))
     }
 
     fn sleep_while_running(running: &AtomicBool, duration: Duration) -> bool {
@@ -820,16 +838,33 @@ mod platform {
     #[cfg(test)]
     mod conversion_tests {
         use super::{
-            apply_gain, decibels_to_gain, is_airplay_flow_virtual_endpoint, AudioConverter,
+            apply_gain, decibels_to_gain, is_virtual_output_name, AudioConverter,
             NativeAudioFormat, SampleEncoding, StereoResampler,
         };
 
         #[test]
-        fn recognizes_the_virtual_render_endpoint_name() {
-            assert!(is_airplay_flow_virtual_endpoint(
+        fn recognizes_software_render_endpoints() {
+            assert!(is_virtual_output_name(
                 "Speakers (AirPlay Flow Win Virtual Audio)"
             ));
-            assert!(!is_airplay_flow_virtual_endpoint("Headphones (USB Audio)"));
+            assert!(is_virtual_output_name("Steam Streaming Speakers"));
+            assert!(is_virtual_output_name(
+                "CABLE Input (VB-Audio Virtual Cable)"
+            ));
+            assert!(is_virtual_output_name(
+                "VoiceMeeter Input (VB-Audio VoiceMeeter VAIO)"
+            ));
+            assert!(is_virtual_output_name("Line 1 (Virtual Audio Cable)"));
+            assert!(is_virtual_output_name("网易虚拟音频设备"));
+        }
+
+        #[test]
+        fn does_not_treat_physical_or_hdmi_endpoints_as_virtual() {
+            assert!(!is_virtual_output_name("Headphones (USB Audio)"));
+            assert!(!is_virtual_output_name(
+                "NVIDIA Virtual Audio Device (Wave Extensible) (WDM)"
+            ));
+            assert!(!is_virtual_output_name("Realtek(R) Audio"));
         }
 
         #[test]

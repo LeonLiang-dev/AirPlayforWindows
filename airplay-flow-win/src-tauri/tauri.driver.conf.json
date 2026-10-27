@@ -1,0 +1,11 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "bundle": {
+    "resources": {
+      "../release/driver/": "driver/",
+      "../driver/installer/DeviceSetup.cs": "driver/DeviceSetup.cs",
+      "../driver/installer/Install-Driver.ps1": "driver/Install-Driver.ps1",
+      "../driver/installer/Uninstall-Driver.ps1": "driver/Uninstall-Driver.ps1"
+    }
+  }
+}

@@ -25,7 +25,7 @@ export interface AudioDeviceInfo {
   id: string;
   name: string;
   is_default: boolean;
-  is_airplay_flow_virtual: boolean;
+  is_virtual_output: boolean;
   sample_rate: number;
   channels: number;
 }

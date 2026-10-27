@@ -32,4 +32,30 @@ The script restores pinned Microsoft WDK/SDK NuGet packages when needed, runs WD
 
 The implementation is derived from Microsoft's SysVAD sample in `microsoft/Windows-driver-samples`, commit `26a27df80772dbcfd69e6449b671d5c29eb5aedc`. The upstream sample license is preserved in `LICENSE-MICROSOFT-SAMPLES.txt`.
 
-Before installation, the package still needs an appropriate catalog and Windows-compatible driver signature. Development test installation may require test-signing and can conflict with Secure Boot; production distribution requires Microsoft driver signing. Those system-level steps are intentionally separate from the build script.
+## Installer integration
+
+The default `Build-Installer.ps1` build does **not** ship this driver. The app streams from whatever virtual render endpoint Windows already has — a signed third-party device such as Steam Streaming Speakers or VB-CABLE — so no test-signing, Secure Boot change, or driver signature is involved. See "Streaming without this driver" below.
+
+To bundle the driver, build the installer with `-IncludeDriver`:
+
+```powershell
+.\Build-Installer.ps1 -IncludeDriver
+.\Build-Installer.ps1 -IncludeDriver -DriverPackagePath "C:\path\to\signed-driver"
+```
+
+That build embeds the staged driver package and the files under `driver/installer` into the Tauri NSIS installer. The elevated installer uses the Windows inbox `PnPUtil` plus a small SetupAPI helper to create or update `Root\AirPlayFlowVad`; no redistributable DevCon or DevGen binary is required. Application uninstall removes the device node and its OEM INF package.
+
+The package still needs an appropriate catalog and Windows-compatible driver signature. The repository's current release package is test-signed for development and requires Secure Boot to be disabled. Production distribution requires a Microsoft Attestation or WHQL signed package. Supply that package to `Build-Installer.ps1 -IncludeDriver -DriverPackagePath <directory>` to build the same one-step installer for Secure Boot systems.
+
+## Streaming without this driver
+
+WASAPI loopback can capture any render endpoint, including a virtual one that other vendors already signed. The app treats these endpoint names as virtual outputs:
+
+- `AirPlay Flow Win` (this driver)
+- `Steam Streaming Speakers` (installed with Steam)
+- `VB-Audio` / `CABLE Input` (VB-CABLE)
+- `VoiceMeeter`
+- `Virtual Audio Cable`
+- endpoints whose localized name contains `虚拟音频设备` or `虚拟声卡`
+
+Everything works with the endpoint selected as the Windows default output: the app streams it and nothing is played on the physical speakers. The trade-off is that the user needs one of those devices installed, and the endpoint cannot carry this project's branding.
