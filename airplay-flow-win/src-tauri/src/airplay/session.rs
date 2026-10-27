@@ -300,6 +300,21 @@ impl RtspSession {
         Ok(())
     }
 
+    /// Record a fatal transport failure on this session.
+    ///
+    /// Receivers drop the session when another AirPlay sender takes the device
+    /// over; every later write fails the same way, so the pipeline checks
+    /// [`is_failed`](Self::is_failed) before sending again. A reconnected
+    /// session is a new object and streams normally.
+    pub fn mark_failed(&mut self, message: String) {
+        self.state = SessionState::Error(message);
+    }
+
+    /// Whether this session hit a fatal transport failure.
+    pub fn is_failed(&self) -> bool {
+        matches!(self.state, SessionState::Error(_))
+    }
+
     /// Pause the stream
     pub async fn pause(&mut self) -> AppResult<()> {
         if self.state != SessionState::Recording {

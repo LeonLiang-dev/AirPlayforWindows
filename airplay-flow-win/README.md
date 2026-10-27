@@ -22,6 +22,7 @@ AirPlay Flow Win 是一款面向 Windows 11 的开源桌面音频发送器。它
 - Windows 选择虚拟声卡时发送 AirPlay；切回耳机或实体音箱时自动暂停发送
 - 将虚拟端点的 Windows 主音量和静音状态应用到发送的 PCM 音频
 - 兼容任意已签名虚拟输出：Steam Streaming Speakers、VB-CABLE、VoiceMeeter、Virtual Audio Cable 等
+- 连接被其他 AirPlay 发送端抢占后，自动判定连接失效并提供一键重连
 - 提供应用与可选驱动一体化部署的 NSIS 安装包
 
 ## 工作原理

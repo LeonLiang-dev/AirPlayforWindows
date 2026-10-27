@@ -23,6 +23,13 @@ const ACTIVITY_LOG_INTERVAL: Duration = Duration::from_secs(2);
 pub enum AudioPipelineEvent {
     CaptureDeviceChanged(crate::audio::capture::AudioDeviceInfo),
     CaptureError(String),
+    /// A receiver dropped the session (for example another AirPlay sender took
+    /// over the device). The connection itself is gone even though the audio
+    /// pipeline is still running, so the UI has to stop pretending otherwise.
+    DeviceConnectionLost {
+        device_id: String,
+        message: String,
+    },
 }
 
 pub struct AudioPipeline {
@@ -136,8 +143,25 @@ impl AudioPipeline {
                         let mut sessions = sessions.lock().await;
                         for device_id in &device_ids {
                             if let Some(session) = sessions.get_mut(device_id) {
+                                if session.is_failed() {
+                                    continue;
+                                }
                                 if let Err(error) = session.send_audio(&alac_frame).await {
                                     warn!("Unable to send audio to {device_id}: {error}");
+                                    // Mark the session itself: the receiver closed
+                                    // the transport, so retrying every frame would
+                                    // only flood the log. A reconnected session is
+                                    // a fresh object and streams normally again.
+                                    let message = error.to_string();
+                                    session.mark_failed(message.clone());
+                                    if let Some(event_tx) = event_tx.as_ref() {
+                                        let _ = event_tx.send(
+                                            AudioPipelineEvent::DeviceConnectionLost {
+                                                device_id: device_id.clone(),
+                                                message,
+                                            },
+                                        );
+                                    }
                                 }
                             }
                         }

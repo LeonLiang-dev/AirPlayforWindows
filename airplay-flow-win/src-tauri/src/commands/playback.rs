@@ -63,6 +63,9 @@ pub async fn start_streaming(
     let (pipeline_event_tx, mut pipeline_event_rx) = tokio::sync::mpsc::unbounded_channel();
     let pipeline_event_app = app.clone();
     let pipeline_event_device_ids = device_ids.clone();
+    let pipeline_event_connections = state.active_connections.clone();
+    let pipeline_event_registry = state.device_registry.clone();
+    let pipeline_event_pipeline = state.audio_pipeline.clone();
     tokio::spawn(async move {
         while let Some(event) = pipeline_event_rx.recv().await {
             match event {
@@ -77,6 +80,47 @@ pub async fn start_streaming(
                             emit_playback_error(&pipeline_event_app, device_id, &error)
                         {
                             log::warn!("Unable to emit capture error: {emit_error}");
+                        }
+                    }
+                }
+                AudioPipelineEvent::DeviceConnectionLost { device_id, message } => {
+                    log::warn!("Connection to {device_id} lost: {message}");
+                    // The receiver closed the session, so the stored session can
+                    // never be reused. Drop it before any UI action tries to.
+                    pipeline_event_connections.lock().await.remove(&device_id);
+
+                    {
+                        let mut registry = pipeline_event_registry.lock().await;
+                        if let Some(device) = registry.get_mut(&device_id) {
+                            device.connection_state = ConnectionState::Error(message.clone());
+                        }
+                    }
+                    let connection_state = ConnectionState::Error(message.clone());
+                    if let Err(error) =
+                        emit_connection_changed(&pipeline_event_app, &device_id, &connection_state)
+                    {
+                        log::warn!("Unable to emit connection loss: {error}");
+                    }
+                    if let Err(error) =
+                        emit_playback_error(&pipeline_event_app, &device_id, &message)
+                    {
+                        log::warn!("Unable to emit connection loss error: {error}");
+                    }
+
+                    if pipeline_event_connections.lock().await.is_empty() {
+                        let mut pipeline_guard = pipeline_event_pipeline.lock().await;
+                        if let Some(pipeline) = pipeline_guard.as_mut() {
+                            if let Err(error) = pipeline.stop().await {
+                                log::warn!(
+                                    "Unable to stop the audio pipeline after connection loss: {error}"
+                                );
+                            }
+                        }
+                        drop(pipeline_guard);
+                        if let Err(error) =
+                            emit_playback_stopped(&pipeline_event_app, "connection lost")
+                        {
+                            log::warn!("Unable to emit playback stop event: {error}");
                         }
                     }
                 }

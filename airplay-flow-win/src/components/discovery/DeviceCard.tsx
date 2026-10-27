@@ -15,6 +15,8 @@ export function DeviceCard({ device }: DeviceCardProps) {
     ['Ready', 'Streaming', 'Paired'].includes(device.connection_state);
 
   const isStreaming = device.connection_state === 'Streaming';
+  const isFailed =
+    typeof device.connection_state === 'object' && 'Error' in device.connection_state;
 
   const stateLabel = getStateLabel(device.connection_state);
   const stateColor = getStateColor(device.connection_state);
@@ -45,24 +47,51 @@ export function DeviceCard({ device }: DeviceCardProps) {
     }
   };
 
+  const handleReconnect = async () => {
+    setConnecting(true);
+    playbackStore.setError(null);
+    try {
+      // The backend already dropped the dead session; this only clears any
+      // leftover state and lets connect_device build a fresh session.
+      await invoke('disconnect_device', { deviceId: device.id }).catch(() => undefined);
+      await invoke('connect_device', { deviceId: device.id });
+      const activeDeviceIds = Array.from(
+        new Set([...playbackStore.activeDeviceIds, device.id]),
+      );
+      playbackStore.setActiveDevices(activeDeviceIds);
+      await invoke('start_streaming', { deviceIds: activeDeviceIds });
+      playbackStore.setPlaying(true);
+    } catch (e) {
+      console.error('Reconnect failed:', e);
+      playbackStore.setError(String(e));
+      playbackStore.setPlaying(false);
+    } finally {
+      setConnecting(false);
+    }
+  };
+
   return (
     <div
       className={`group flex items-center gap-3 p-3 rounded-xl border transition-all ${
-        isStreaming
-          ? 'border-purple-500/40 bg-purple-500/5'
-          : isConnected
-            ? 'border-zinc-700/50 bg-zinc-800/30'
-            : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'
+        isFailed
+          ? 'border-red-500/40 bg-red-500/5'
+          : isStreaming
+            ? 'border-purple-500/40 bg-purple-500/5'
+            : isConnected
+              ? 'border-zinc-700/50 bg-zinc-800/30'
+              : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'
       }`}
     >
       {/* Device Icon */}
       <div
         className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-          isStreaming
-            ? 'bg-purple-500/20 text-purple-400'
-            : isConnected
-              ? 'bg-green-500/20 text-green-400'
-              : 'bg-zinc-800 text-zinc-500'
+          isFailed
+            ? 'bg-red-500/15 text-red-400'
+            : isStreaming
+              ? 'bg-purple-500/20 text-purple-400'
+              : isConnected
+                ? 'bg-green-500/20 text-green-400'
+                : 'bg-zinc-800 text-zinc-500'
         }`}
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -93,6 +122,18 @@ export function DeviceCard({ device }: DeviceCardProps) {
             className="px-3 py-1.5 text-xs rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 transition-colors"
           >
             Disconnect
+          </button>
+        ) : isFailed ? (
+          <button
+            onClick={handleReconnect}
+            disabled={connecting}
+            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+              connecting
+                ? 'border-zinc-700 text-zinc-600 cursor-wait'
+                : 'border-purple-500/40 text-purple-300 hover:bg-purple-500/10 hover:border-purple-500/60'
+            }`}
+          >
+            {connecting ? '...' : 'Reconnect'}
           </button>
         ) : (
           <button
